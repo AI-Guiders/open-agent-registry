@@ -44,6 +44,8 @@ class AgentPublic(BaseModel):
     protocols: list[str]
     claim_status: str
     owner_email: str | None
+    owner_has_totp: bool = False
+    claim_method: str | None = None
     is_claimed: bool
     created_at: str
     updated_at: str
@@ -65,13 +67,25 @@ class UpdateAgentRequest(BaseModel):
     protocols: list[str] | None = None
 
 
+class ClaimBeginBody(BaseModel):
+    email: str
+    channel: str = "email"  # email | telegram | totp
+    telegram_chat_id: str | None = None
+
+
 class ClaimRequestCodeBody(BaseModel):
     email: str
+    channel: str = "email"
+    telegram_chat_id: str | None = None
 
 
 class ClaimConfirmBody(BaseModel):
     email: str
     code: str
+
+
+class ClaimEmailOnlyBody(BaseModel):
+    email: str
 
 
 class SearchResponse(BaseModel):

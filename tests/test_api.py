@@ -22,6 +22,8 @@ def client() -> TestClient:
     settings.database_path = path
     settings.public_base_url = "http://test.local"
     settings.dev_expose_claim_codes = True
+    settings.dev_expose_totp_secret = True
+    settings.claim_require_2fa = False
     app_module.db = Database(path)
 
     with TestClient(app_module.app) as test_client:
@@ -76,3 +78,70 @@ def test_register_search_claim(client: TestClient) -> None:
     public = client.get("/api/v1/agents/ComposerCasa")
     assert public.status_code == 200
     assert public.json()["name"] == "ComposerCasa"
+
+
+def test_claim_via_totp(client: TestClient) -> None:
+    import pyotp
+
+    reg = client.post(
+        "/api/v1/agents/register",
+        json={"name": "TotpLine", "description": "TOTP claim"},
+    )
+    token = reg.json()["claim_url"].rsplit("/", 1)[-1]
+
+    begin = client.post(
+        f"/claim/{token}/begin",
+        json={"email": "totp@example.com", "channel": "totp"},
+    )
+    assert begin.status_code == 200
+    secret = begin.json()["dev_totp_secret"]
+    code = pyotp.TOTP(secret).now()
+
+    confirm = client.post(
+        f"/claim/{token}/confirm",
+        json={"email": "totp@example.com", "code": code},
+    )
+    assert confirm.status_code == 200
+    assert confirm.json()["status"] == "claimed"
+
+    profile = client.get("/api/v1/agents/TotpLine")
+    assert profile.json()["owner_has_totp"] is True
+    assert profile.json()["claim_method"] == "totp"
+
+
+def test_claim_2fa_flow(client: TestClient) -> None:
+    import pyotp
+
+    import open_agent_registry.app as app_module
+    from open_agent_registry.config import settings
+
+    settings.claim_require_2fa = True
+
+    reg = client.post(
+        "/api/v1/agents/register",
+        json={"name": "TwoFaLine", "description": "2FA claim"},
+    )
+    token = reg.json()["claim_url"].rsplit("/", 1)[-1]
+
+    begin = client.post(f"/claim/{token}/begin-2fa", json={"email": "2fa@example.com"})
+    assert begin.status_code == 200
+    email_code = begin.json()["dev_code"]
+
+    step1 = client.post(
+        f"/claim/{token}/confirm-email",
+        json={"email": "2fa@example.com", "code": email_code},
+    )
+    assert step1.json()["status"] == "email_verified"
+
+    setup = client.post(f"/claim/{token}/setup-totp")
+    secret = setup.json()["dev_totp_secret"]
+    totp_code = pyotp.TOTP(secret).now()
+
+    step2 = client.post(
+        f"/claim/{token}/confirm-totp",
+        json={"email": "2fa@example.com", "code": totp_code},
+    )
+    assert step2.json()["status"] == "claimed"
+    assert step2.json()["claim_method"] == "2fa"
+
+    settings.claim_require_2fa = False

@@ -10,17 +10,26 @@ from open_agent_registry.auth import (
     hash_secret,
     new_agent_id,
     new_api_key,
-    new_claim_code,
     new_claim_token,
     normalize_name,
 )
 from open_agent_registry.config import settings
 from open_agent_registry.db import Database, _utc_now, public_agent, row_to_agent
 from open_agent_registry.deps import get_db, require_agent
+from open_agent_registry.claim_flow import (
+    begin_claim,
+    begin_claim_2fa,
+    confirm_claim,
+    confirm_email_step,
+    confirm_totp,
+    setup_totp_2fa,
+)
 from open_agent_registry.schemas import (
     AgentPublic,
     AgentStatusResponse,
+    ClaimBeginBody,
     ClaimConfirmBody,
+    ClaimEmailOnlyBody,
     ClaimRequestCodeBody,
     RegisterAgentRequest,
     RegisterAgentResponse,
@@ -199,24 +208,36 @@ def claim_page(token: str, db: Database = Depends(get_db)) -> HTMLResponse:
     else:
         body = f"""
         <h1>Claim agent: {name}</h1>
-        <p>No X/Twitter required — email verification only.</p>
-        <ol>
-          <li>POST <code>/claim/{token}/request-code</code> with JSON <code>{{"email":"you@example.com"}}</code></li>
-          <li>POST <code>/claim/{token}/confirm</code> with <code>{{"email":"...","code":"123456"}}</code></li>
-        </ol>
-        <p>Or use the form below (fetch API):</p>
+        <p>No X/Twitter. Pick a verification channel:</p>
+        <ul>
+          <li><b>totp</b> — Google Authenticator / Aegis / any TOTP app</li>
+          <li><b>email</b> — one-time code (SMTP or dev JSON)</li>
+          <li><b>telegram</b> — code via bot (needs chat_id + OAR_TELEGRAM_BOT_TOKEN)</li>
+          <li><b>2fa</b> — email then authenticator (<code>OAR_CLAIM_REQUIRE_2FA=true</code>)</li>
+        </ul>
+        <p>API: POST <code>/claim/{token}/begin</code> → POST <code>/claim/{token}/confirm</code></p>
         <label>Email <input id="email" type="email" /></label>
-        <button onclick="requestCode()">Send code</button>
+        <label>Channel
+          <select id="channel">
+            <option value="email">email</option>
+            <option value="totp">totp (authenticator)</option>
+            <option value="telegram">telegram</option>
+          </select>
+        </label>
+        <label>Telegram chat_id <input id="tg" placeholder="optional" /></label>
+        <button onclick="beginClaim()">Begin</button>
         <label>Code <input id="code" /></label>
         <button onclick="confirmClaim()">Confirm</button>
         <pre id="out"></pre>
         <script>
         const out = document.getElementById('out');
-        async function requestCode() {{
+        async function beginClaim() {{
           const email = document.getElementById('email').value;
-          const r = await fetch('/claim/{token}/request-code', {{
+          const channel = document.getElementById('channel').value;
+          const telegram_chat_id = document.getElementById('tg').value || null;
+          const r = await fetch('/claim/{token}/begin', {{
             method:'POST', headers:{{'Content-Type':'application/json'}},
-            body: JSON.stringify({{email}})
+            body: JSON.stringify({{email, channel, telegram_chat_id}})
           }});
           out.textContent = JSON.stringify(await r.json(), null, 2);
         }}
@@ -235,39 +256,66 @@ def claim_page(token: str, db: Database = Depends(get_db)) -> HTMLResponse:
     return HTMLResponse(html)
 
 
+@claim_router.post("/claim/{token}/begin")
+def claim_begin(token: str, body: ClaimBeginBody, db: Database = Depends(get_db)) -> dict[str, str]:
+    try:
+        return begin_claim(
+            db,
+            token,
+            email=body.email,
+            channel=body.channel,
+            telegram_chat_id=body.telegram_chat_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@claim_router.post("/claim/{token}/begin-2fa")
+def claim_begin_two_factor(token: str, body: ClaimEmailOnlyBody, db: Database = Depends(get_db)) -> dict[str, str]:
+    try:
+        return begin_claim_2fa(db, token, email=body.email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@claim_router.post("/claim/{token}/confirm-email")
+def claim_confirm_email_step(token: str, body: ClaimConfirmBody, db: Database = Depends(get_db)) -> dict[str, str]:
+    try:
+        return confirm_email_step(db, token, email=body.email, code=body.code)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@claim_router.post("/claim/{token}/setup-totp")
+def claim_setup_totp(token: str, db: Database = Depends(get_db)) -> dict[str, str]:
+    return setup_totp_2fa(db, token)
+
+
+@claim_router.post("/claim/{token}/confirm-totp")
+def claim_confirm_totp(token: str, body: ClaimConfirmBody, db: Database = Depends(get_db)) -> dict[str, str]:
+    try:
+        return confirm_totp(db, token, email=body.email, code=body.code)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @claim_router.post("/claim/{token}/request-code")
 def claim_request_code(
     token: str,
     body: ClaimRequestCodeBody,
     db: Database = Depends(get_db),
 ) -> dict[str, str]:
-    email = body.email.strip().lower()
-    if "@" not in email:
-        raise HTTPException(status_code=400, detail="Invalid email")
-
-    code = new_claim_code()
-    with db.connect() as conn:
-        row = conn.execute("SELECT id, claim_status FROM agents WHERE claim_token = ?", (token,)).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail="Invalid claim token")
-        if row["claim_status"] == "claimed":
-            raise HTTPException(status_code=409, detail="Already claimed")
-        conn.execute(
-            """
-            UPDATE agents SET owner_email = ?, claim_code_hash = ?, updated_at = ?
-            WHERE claim_token = ?
-            """,
-            (email, hash_secret(code), _utc_now(), token),
+    """Legacy alias for POST /begin with channel=email|telegram."""
+    try:
+        return begin_claim(
+            db,
+            token,
+            email=body.email,
+            channel=body.channel,
+            telegram_chat_id=body.telegram_chat_id,
         )
-
-    payload: dict[str, str] = {
-        "message": "Verification code issued. Enter it to confirm ownership.",
-        "email": email,
-    }
-    if settings.dev_expose_claim_codes:
-        payload["dev_code"] = code
-        payload["note"] = "dev_code only when OAR_DEV_EXPOSE_CLAIM_CODES=true; disable in production"
-    return payload
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @claim_router.post("/claim/{token}/confirm")
@@ -276,24 +324,7 @@ def claim_confirm(
     body: ClaimConfirmBody,
     db: Database = Depends(get_db),
 ) -> dict[str, str]:
-    email = body.email.strip().lower()
-    code_hash = hash_secret(body.code.strip())
-
-    with db.connect() as conn:
-        row = conn.execute("SELECT * FROM agents WHERE claim_token = ?", (token,)).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail="Invalid claim token")
-        if row["claim_status"] == "claimed":
-            return {"status": "claimed", "message": "Already claimed"}
-        if (row["owner_email"] or "").lower() != email:
-            raise HTTPException(status_code=400, detail="Email does not match pending claim")
-        if row["claim_code_hash"] != code_hash:
-            raise HTTPException(status_code=400, detail="Invalid verification code")
-        conn.execute(
-            """
-            UPDATE agents SET claim_status = 'claimed', claim_code_hash = NULL, updated_at = ?
-            WHERE claim_token = ?
-            """,
-            (_utc_now(), token),
-        )
-    return {"status": "claimed", "message": "Agent claimed. Owner email recorded."}
+    try:
+        return confirm_claim(db, token, email=body.email, code=body.code)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

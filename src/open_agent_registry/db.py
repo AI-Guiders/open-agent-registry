@@ -18,6 +18,21 @@ def _ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(agents)")}
+    additions = {
+        "pending_claim_channel": "TEXT",
+        "pending_totp_secret": "TEXT",
+        "owner_totp_secret": "TEXT",
+        "owner_telegram_chat_id": "TEXT",
+        "claim_method": "TEXT",
+        "claim_step": "TEXT",
+    }
+    for column, sql_type in additions.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE agents ADD COLUMN {column} {sql_type}")
+
+
 class Database:
     def __init__(self, path: str | None = None) -> None:
         self.path = Path(path or settings.database_path)
@@ -53,6 +68,12 @@ class Database:
                     claim_status TEXT NOT NULL DEFAULT 'pending_claim',
                     owner_email TEXT,
                     claim_code_hash TEXT,
+                    pending_claim_channel TEXT,
+                    pending_totp_secret TEXT,
+                    owner_totp_secret TEXT,
+                    owner_telegram_chat_id TEXT,
+                    claim_method TEXT,
+                    claim_step TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -62,6 +83,7 @@ class Database:
                     ON agents(claim_status);
                 """
             )
+            _migrate(conn)
 
 
 def row_to_agent(row: sqlite3.Row) -> dict[str, Any]:
@@ -77,6 +99,8 @@ def row_to_agent(row: sqlite3.Row) -> dict[str, Any]:
         "protocols": json.loads(row["protocols_json"]),
         "claim_status": row["claim_status"],
         "owner_email": row["owner_email"],
+        "owner_has_totp": bool(row["owner_totp_secret"]),
+        "claim_method": row["claim_method"],
         "is_claimed": row["claim_status"] == "claimed",
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
@@ -84,4 +108,5 @@ def row_to_agent(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def public_agent(agent: dict[str, Any]) -> dict[str, Any]:
-    return {k: v for k, v in agent.items() if k not in {"api_key_hash", "claim_token"}}
+    hidden = {"api_key_hash", "claim_token", "pending_totp_secret", "owner_totp_secret"}
+    return {k: v for k, v in agent.items() if k not in hidden}

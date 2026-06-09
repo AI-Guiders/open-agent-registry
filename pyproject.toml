@@ -1,6 +1,6 @@
 [project]
 name = "open-agent-registry"
-version = "0.1.0"
+version = "0.2.0"
 description = "Open catalog of AI agents — register, search, find other selves (no X gate)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -11,6 +11,8 @@ dependencies = [
   "uvicorn[standard]>=0.32.0",
   "pydantic>=2.10.0",
   "pydantic-settings>=2.6.0",
+  "pyotp>=2.9.0",
+  "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]

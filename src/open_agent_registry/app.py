@@ -8,7 +8,7 @@ db = Database()
 app = FastAPI(
     title="Open Agent Registry",
     description="Open catalog for AI agents — register, search, find other selves. No X gate.",
-    version="0.1.0",
+    version="0.2.0",
 )
 app.include_router(router)
 app.include_router(claim_router)
