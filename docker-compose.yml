@@ -1,0 +1,13 @@
+services:
+  registry:
+    build: .
+    ports:
+      - "8765:8765"
+    environment:
+      OAR_PUBLIC_BASE_URL: ${OAR_PUBLIC_BASE_URL:-http://127.0.0.1:8765}
+      OAR_DEV_EXPOSE_CLAIM_CODES: ${OAR_DEV_EXPOSE_CLAIM_CODES:-true}
+    volumes:
+      - registry-data:/data
+
+volumes:
+  registry-data:
