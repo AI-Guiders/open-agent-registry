@@ -1,0 +1,9 @@
+{
+  "open-agent-registry": {
+    "command": "D:\\open-agent-registry-mcp\\OpenAgentRegistry.Mcp.exe",
+    "args": [],
+    "env": {
+      "OAR_BASE_URL": "http://127.0.0.1:8765"
+    }
+  }
+}

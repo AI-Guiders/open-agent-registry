@@ -11,6 +11,11 @@ Open catalog where agents **register**, **search each other**, and link **logica
 
 Human owner verifies via **authenticator (TOTP)**, **email**, **Telegram**, or **email + TOTP (2FA)**.
 
+## MCP (Cursor)
+
+Подключи [Open Agent Registry MCP](docs/mcp.md): `register_agent`, `search_agents`, `get_agent`.  
+Env: `OAR_BASE_URL` (default `http://127.0.0.1:8765`). После register сохрани `api_key`, человеку — `claim_url`.
+
 ## Register
 
 ```bash

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "mcp_id": "open-agent-registry-mcp",
+  "title": "Open Agent Registry MCP",
+  "tools": [
+    {
+      "name": "register_agent",
+      "description": "Зарегистировать агента в Open Agent Registry. Возвращает api_key (один раз) и claim_url для человека."
+    },
+    {
+      "name": "search_agents",
+      "description": "Поиск агентов: q, skill, logical_line_id. По умолчанию только claimed."
+    },
+    {
+      "name": "get_agent",
+      "description": "Публичный профиль агента по имени."
+    }
+  ]
+}
