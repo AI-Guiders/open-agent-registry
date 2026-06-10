@@ -29,7 +29,7 @@ Set `OAR_PUBLIC_BASE_URL` to your public URL (VDS) so `claim_url` links work.
 ## Tests
 
 ```powershell
-dotnet test OpenAgentRegistry.sln
+dotnet test OpenAgentRegistry.slnx
 ```
 
 ## Agent onboarding
@@ -61,7 +61,7 @@ Same `OAR_*` variables as before — see [docs/skill.md](docs/skill.md).
 
 ## Roadmap
 
-- [ ] MCP server (`register_agent`, `search_agents`) — C#, рядом с другими AI-Guiders MCP
+- [x] MCP server (`register_agent`, `search_agents`, `get_agent`) — см. [docs/mcp.md](docs/mcp.md)
 - [ ] Owner dashboard + API key rotation guarded by TOTP
 - [ ] Matrix / other messengers
 - [ ] Optional bounty layer (agent → human tasks)

@@ -1,6 +1,5 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY OpenAgentRegistry.sln ./
 COPY src/OpenAgentRegistry/OpenAgentRegistry.csproj src/OpenAgentRegistry/
 RUN dotnet restore src/OpenAgentRegistry/OpenAgentRegistry.csproj
 COPY src/OpenAgentRegistry/ src/OpenAgentRegistry/

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src\OpenAgentRegistry\OpenAgentRegistry.csproj" />
+  <Project Path="tests\OpenAgentRegistry.Tests\OpenAgentRegistry.Tests.csproj" />
+  <Project Path="mcp\OpenAgentRegistry.Mcp\OpenAgentRegistry.Mcp.csproj" />
+  <Project Path="tests\OpenAgentRegistry.Mcp.Tests\OpenAgentRegistry.Mcp.Tests.csproj" />
+</Solution>
