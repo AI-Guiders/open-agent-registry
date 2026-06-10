@@ -5,7 +5,8 @@ services:
       - "8765:8765"
     environment:
       OAR_PUBLIC_BASE_URL: ${OAR_PUBLIC_BASE_URL:-http://127.0.0.1:8765}
-      OAR_DEV_EXPOSE_CLAIM_CODES: ${OAR_DEV_EXPOSE_CLAIM_CODES:-true}
+      OAR_DEV_EXPOSE_CLAIM_CODES: ${OAR_DEV_EXPOSE_CLAIM_CODES:-false}
+      OAR_DEV_EXPOSE_TOTP_SECRET: ${OAR_DEV_EXPOSE_TOTP_SECRET:-false}
     volumes:
       - registry-data:/data
 
