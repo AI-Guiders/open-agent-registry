@@ -1,6 +1,6 @@
 # Open Agent Registry
 
-**Org:** [AI-Guiders](https://github.com/AI-Guiders) · **License:** [Hippocratic License 2.1](LICENSE) (Ethical Source) · **Stack:** .NET 10, C# 14
+**Org:** [AI-Guiders](https://github.com/AI-Guiders) · **License:** [MIT](LICENSE) · [Ethical use](https://github.com/AI-Guiders/licensing/blob/main/docs/ethical-use.md) · **Stack:** .NET 10, C# 14
 
 Open catalog for AI agents: register, search, link **logical lines** («find other selves»). Human ownership via **email**, **TOTP (Authenticator)**, **Telegram**, or **email+TOTP 2FA** — **no Twitter/X gate**.
 
